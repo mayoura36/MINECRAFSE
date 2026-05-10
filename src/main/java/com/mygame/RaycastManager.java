@@ -82,12 +82,24 @@ public class RaycastManager {
     }
 
     public void deleteBlock() {
-        CollisionResults results = getRaycastResults();
-        if (results.size() > 0) {
-            Geometry target = results.getClosestCollision().getGeometry();
-            if (!target.getName().equals("Floor") && !target.getName().equals("SelectionOutline")) {
-                target.removeFromParent();
-            }
+    // 1. Create the Ray from the center of the camera
+    Ray ray = new Ray(cam.getLocation(), cam.getDirection());
+    CollisionResults results = new CollisionResults();
+    
+    // 2. Scan the rootNode for hits
+    rootNode.collideWith(ray, results);
+
+    if (results.size() > 0) {
+        // Get the closest thing the crosshair is touching
+        Geometry target = results.getClosestCollision().getGeometry();
+        
+        // 3. Safety Check: Only delete if it's a WorldBlock
+        // We check the name so we don't delete the Floor or the Selection Outline!
+        if (target.getName().equals("WorldBlock")) {
+            target.removeFromParent(); // This deletes the block from the game
+        } else if (target.getName().equals("Floor")) {
+            System.out.println("You cannot delete the floor!");
         }
     }
+}
 }

@@ -1,58 +1,73 @@
 package com.mygame;
 
-import com.jme3.collision.CollisionResults;
-import com.jme3.math.Vector3f;
-import com.jme3.scene.Geometry;
-import com.jme3.scene.Node;
 import com.jme3.collision.CollisionResult;
+import com.jme3.collision.CollisionResults;
 import com.jme3.math.Ray;
+import com.jme3.math.Vector3f;
+import com.jme3.scene.Node;
 
 public class PhysicsEngine {
     private Player player;
     private Node rootNode;
+    private MovementManager movementManager; // The variable must be here
 
-    public PhysicsEngine(Player player, Node rootNode) {
+    // The Constructor MUST receive the movementManager from Main
+    public PhysicsEngine(Player player, Node rootNode, MovementManager movementManager) {
         this.player = player;
         this.rootNode = rootNode;
+        this.movementManager = movementManager; // This "plugs in" the manager
     }
 
     public void updatePhysics(float tpf) {
         if (player.isGhostMode()) return;
 
-        // 1. Apply Gravity to Velocity
+        // 1. Gravity Logic
         float vY = player.getyVelocity();
         vY += player.getGravity() * tpf;
         player.setyVelocity(vY);
 
-        // 2. Predict next position
-        Vector3f nextPos = player.position.add(0, vY * tpf, 0);
-
-        // 3. Ground Collision Check
-        // We cast a short ray downward from the player's center to detect the floor/blocks
-        Ray groundRay = new Ray(player.position.add(0, 0.5f, 0), Vector3f.UNIT_Y.negate());
-        CollisionResults results = new CollisionResults();
-        rootNode.collideWith(groundRay, results);
-
-        boolean onGround = false;
-        if (results.size() > 0) {
-            CollisionResult closest = results.getClosestCollision();
-            float dist = closest.getDistance();
+        // 2. WALL COLLISION (The part that uses movementManager)
+        if (movementManager != null) {
+            Vector3f moveDir = movementManager.getCurrentMoveDirection();
             
-            // If the distance to the floor is very small, we are standing on it
-            if (dist <= 0.5f && vY <= 0) {
-                onGround = true;
-                player.setyVelocity(0);
-                // Snap player to the surface of the block/floor
-                player.position.y = closest.getContactPoint().y;
+            if (moveDir.lengthSquared() > 0) {
+                // Check for walls at knee and chest height
+                float[] checkHeights = {0.5f, 1.2f};
+                for (float h : checkHeights) {
+                    Ray wallRay = new Ray(player.position.add(0, h, 0), moveDir);
+                    CollisionResults wallResults = new CollisionResults();
+                    rootNode.collideWith(wallRay, wallResults);
+                    
+                    if (wallResults.size() > 0) {
+                        float dist = wallResults.getClosestCollision().getDistance();
+                        if (dist < 0.6f) { // If hitting a block
+                            // Push the player back slightly to keep them outside the block
+                            Vector3f pushBack = moveDir.mult(0.6f - dist).negate();
+                            player.position.addLocal(pushBack);
+                        }
+                    }
+                }
             }
         }
 
-        // 4. Fall into the void if not on ground
-        if (!onGround) {
+        // 3. GROUND COLLISION
+        Ray groundRay = new Ray(player.position.add(0, 0.5f, 0), Vector3f.UNIT_Y.negate());
+        CollisionResults groundResults = new CollisionResults();
+        rootNode.collideWith(groundRay, groundResults);
+
+        if (groundResults.size() > 0) {
+            CollisionResult closest = groundResults.getClosestCollision();
+            if (closest.getDistance() <= 0.51f && vY <= 0) {
+                player.setyVelocity(0);
+                player.position.y = closest.getContactPoint().y;
+            } else {
+                player.position.y += vY * tpf;
+            }
+        } else {
             player.position.y += vY * tpf;
         }
         
-        // Safety: If you fall too deep into the void, respawn
+        // Void Respawn
         if (player.position.y < -50) {
             player.position.set(0, 10, 0);
             player.setyVelocity(0);

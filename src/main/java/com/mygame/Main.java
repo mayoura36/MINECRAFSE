@@ -23,16 +23,15 @@ public class Main extends SimpleApplication {
     private PhysicsEngine physicsEngine;
     private RaycastManager raycastManager;
 
+    // This handles single-press actions (Jump, Place, Delete)
     private final ActionListener actionListener = new ActionListener() {
         @Override
         public void onAction(String name, boolean isPressed, float tpf) {
-            // Movement Inputs
             if (name.equals("Forward")) movementManager.setForward(isPressed);
             else if (name.equals("Back")) movementManager.setBack(isPressed);
             else if (name.equals("Left")) movementManager.setLeft(isPressed);
             else if (name.equals("Right")) movementManager.setRight(isPressed);
             
-            // Action Inputs
             else if (name.equals("Jump") && isPressed) {
                 player.jump();
             }
@@ -48,16 +47,15 @@ public class Main extends SimpleApplication {
         }
     };
 
+    // This handles continuous actions (Looking around)
     private final AnalogListener analogListener = new AnalogListener() {
         @Override
         public void onAnalog(String name, float value, float tpf) {
-            // Rotation
             if (name.equals("MouseRight")) player.rotate(-value, 0);
             if (name.equals("MouseLeft"))  player.rotate(value, 0);
             if (name.equals("MouseUp"))    player.rotate(0, value);
             if (name.equals("MouseDown"))  player.rotate(0, -value);
             
-            // Speed Control
             if (name.equals("SpeedUp"))    player.adjustSpeed(1.0f);
             if (name.equals("SpeedDown"))  player.adjustSpeed(-1.0f);
         }
@@ -70,13 +68,19 @@ public class Main extends SimpleApplication {
 
     @Override
     public void simpleInitApp() {
-        // 1. Initialize Player and Managers
+        // --- STEP 1: INITIALIZATION ORDER IS CRITICAL ---
         player = new Player();
+        
+        // 1. Create movement first
         movementManager = new MovementManager(player);
-        physicsEngine = new PhysicsEngine(player, rootNode);
+        
+        // 2. Pass movement into physics so physics can check for walls
+        physicsEngine = new PhysicsEngine(player, rootNode, movementManager);
+        
+        // 3. Setup interaction
         raycastManager = new RaycastManager(cam, rootNode, assetManager);
 
-        // 2. World Setup
+        // --- STEP 2: WORLD SETUP ---
         Box floorBox = new Box(40, 0.1f, 40); 
         Geometry floorGeom = new Geometry("Floor", floorBox);
         Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
@@ -84,11 +88,10 @@ public class Main extends SimpleApplication {
         floorGeom.setMaterial(mat);
         rootNode.attachChild(floorGeom);
 
-        // 3. Camera & Mouse Settings
         flyCam.setEnabled(false);
         mouseInput.setCursorVisible(false); 
 
-        // 4. Input Mappings
+        // --- STEP 3: INPUT MAPPINGS ---
         inputManager.addMapping("Forward", new KeyTrigger(KeyInput.KEY_W));
         inputManager.addMapping("Back",    new KeyTrigger(KeyInput.KEY_S));
         inputManager.addMapping("Left",    new KeyTrigger(KeyInput.KEY_A));
@@ -107,18 +110,16 @@ public class Main extends SimpleApplication {
         inputManager.addMapping("SpeedUp",    new MouseAxisTrigger(MouseInput.AXIS_WHEEL, false));
         inputManager.addMapping("SpeedDown",  new MouseAxisTrigger(MouseInput.AXIS_WHEEL, true));
 
-        // 5. Register Listeners
         inputManager.addListener(actionListener, "Forward", "Back", "Left", "Right", "Jump", "ToggleGhost", "Shoot", "Delete");
         inputManager.addListener(analogListener, "MouseLeft", "MouseRight", "MouseUp", "MouseDown", "SpeedUp", "SpeedDown");
 
-        // 6. UI Setup (HUD & Crosshair)
         initUI();
     }
 
     private void initUI() {
         guiFont = assetManager.loadFont("Interface/Fonts/Default.fnt");
         
-        // Crisp Crosshair
+        // Setup Crosshair
         BitmapText ch = new BitmapText(guiFont, false);
         ch.setSize(guiFont.getCharSet().getRenderedSize() * 2);
         ch.setText("+"); 
@@ -127,7 +128,7 @@ public class Main extends SimpleApplication {
         ch.setLocalTranslation(centerX, centerY, 0);
         guiNode.attachChild(ch);
 
-        // Coordinate HUD
+        // Setup HUD
         BitmapText hud = new BitmapText(guiFont, false);
         hud.setName("CoordHUD");
         hud.setSize(guiFont.getCharSet().getRenderedSize());
@@ -137,20 +138,20 @@ public class Main extends SimpleApplication {
 
     @Override
     public void simpleUpdate(float tpf) {
-        // Update Game Logic via Managers
+        // Run all logic updates
         movementManager.updateMovement(tpf);
         physicsEngine.updatePhysics(tpf);
         raycastManager.update(tpf);
 
-        // Sync Camera Position (Eye level at 1.6f)
+        // Position the camera at eye level (1.6 units above feet)
         cam.setLocation(player.position.add(0, 1.6f, 0));
         
-        // Sync Camera Rotation
+        // Rotate the camera to match player view
         Quaternion q = new Quaternion();
         q.fromAngles(player.pitch, player.yaw, 0); 
         cam.setRotation(q);
 
-        // Update On-Screen Text
+        // Update the HUD display
         BitmapText hud = (BitmapText) guiNode.getChild("CoordHUD");
         if (hud != null) {
             hud.setText("X: " + (int)player.position.x + 
