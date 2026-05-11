@@ -16,71 +16,80 @@ import com.jme3.input.controls.MouseButtonTrigger;
 import com.jme3.font.BitmapText;
 import com.jme3.math.Vector3f;
 
-public class Main extends SimpleApplication {
+public class Main extends SimpleApplication 
+{
 
     private Player player;
     private MovementManager movementManager;
     private PhysicsEngine physicsEngine;
     private RaycastManager raycastManager;
-
-    // This handles single-press actions (Jump, Place, Delete)
-    private final ActionListener actionListener = new ActionListener() {
+    private final ActionListener actionListener = new ActionListener() 
+    {
         @Override
-        public void onAction(String name, boolean isPressed, float tpf) {
-            if (name.equals("Forward")) movementManager.setForward(isPressed);
-            else if (name.equals("Back")) movementManager.setBack(isPressed);
-            else if (name.equals("Left")) movementManager.setLeft(isPressed);
-            else if (name.equals("Right")) movementManager.setRight(isPressed);
+        public void onAction(String name, boolean isPressed, float tpf) 
+        {
+            if (name.equals("Forward"))
+                movementManager.setForward(isPressed);
+            else if (name.equals("Back"))
+                movementManager.setBack(isPressed);
+            else if (name.equals("Left")) 
+                movementManager.setLeft(isPressed);
+            else if (name.equals("Right")) 
+                movementManager.setRight(isPressed);
             
-            else if (name.equals("Jump") && isPressed) {
+            else if (name.equals("Jump") && isPressed)
+            {
                 player.jump();
             }
-            else if (name.equals("Shoot") && isPressed) {
+            else if (name.equals("Shoot") && isPressed) 
+            {
                 raycastManager.placeBlock();
             } 
-            else if (name.equals("Delete") && isPressed) {
-    raycastManager.deleteBlock();
-}
-            else if (name.equals("ToggleGhost") && isPressed) {
+            else if (name.equals("Delete") && isPressed)
+            {
+              raycastManager.deleteBlock();
+            }
+            else if (name.equals("ToggleGhost") && isPressed) 
+            {
                 player.toggleGhostMode();
             }
         }
     };
-
-    // This handles continuous actions (Looking around)
-    private final AnalogListener analogListener = new AnalogListener() {
+    private final AnalogListener analogListener = new AnalogListener() 
+    {
         @Override
-        public void onAnalog(String name, float value, float tpf) {
-            if (name.equals("MouseRight")) player.rotate(-value, 0);
-            if (name.equals("MouseLeft"))  player.rotate(value, 0);
-            if (name.equals("MouseUp"))    player.rotate(0, value);
-            if (name.equals("MouseDown"))  player.rotate(0, -value);
+        public void onAnalog(String name, float value, float tpf) 
+        
+        {
+            if (name.equals("MouseRight")) 
+                player.rotate(-value, 0);
+            if (name.equals("MouseLeft")) 
+                player.rotate(value, 0);
+            if (name.equals("MouseUp"))   
+                player.rotate(0, value);
+            if (name.equals("MouseDown"))  
+                player.rotate(0, -value);
             
-            if (name.equals("SpeedUp"))    player.adjustSpeed(1.0f);
-            if (name.equals("SpeedDown"))  player.adjustSpeed(-1.0f);
+            if (name.equals("SpeedUp"))   
+                player.adjustSpeed(1.0f);
+            if (name.equals("SpeedDown")) 
+                player.adjustSpeed(-1.0f);
         }
     };
 
-    public static void main(String[] args) {
+    public static void main(String[] args) 
+    {
         Main app = new Main();
         app.start();
     }
 
     @Override
-    public void simpleInitApp() {
-        // --- STEP 1: INITIALIZATION ORDER IS CRITICAL ---
-        player = new Player();
-        
-        // 1. Create movement first
+    public void simpleInitApp() 
+    {
+           player = new Player();
         movementManager = new MovementManager(player);
-        
-        // 2. Pass movement into physics so physics can check for walls
         physicsEngine = new PhysicsEngine(player, rootNode, movementManager);
-        
-        // 3. Setup interaction
         raycastManager = new RaycastManager(cam, rootNode, assetManager);
-
-        // --- STEP 2: WORLD SETUP ---
         Box floorBox = new Box(40, 0.1f, 40); 
         Geometry floorGeom = new Geometry("Floor", floorBox);
         Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
@@ -90,15 +99,12 @@ public class Main extends SimpleApplication {
 
         flyCam.setEnabled(false);
         mouseInput.setCursorVisible(false); 
-       // inputManager.addMapping("Delete", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
-        // --- STEP 3: INPUT MAPPINGS ---
         inputManager.addMapping("Forward", new KeyTrigger(KeyInput.KEY_W));
         inputManager.addMapping("Back",    new KeyTrigger(KeyInput.KEY_S));
         inputManager.addMapping("Left",    new KeyTrigger(KeyInput.KEY_A));
         inputManager.addMapping("Right",   new KeyTrigger(KeyInput.KEY_D));
         inputManager.addMapping("Jump",    new KeyTrigger(KeyInput.KEY_SPACE));
         inputManager.addMapping("ToggleGhost", new KeyTrigger(KeyInput.KEY_C));
-        
         inputManager.addMapping("Shoot",   new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addMapping("Delete",  new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
         
@@ -116,10 +122,9 @@ public class Main extends SimpleApplication {
         initUI();
     }
 
-    private void initUI() {
+    private void initUI() 
+    {
         guiFont = assetManager.loadFont("Interface/Fonts/Default.fnt");
-        
-        // Setup Crosshair
         BitmapText ch = new BitmapText(guiFont, false);
         ch.setSize(guiFont.getCharSet().getRenderedSize() * 2);
         ch.setText("+"); 

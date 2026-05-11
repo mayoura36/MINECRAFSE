@@ -1,75 +1,106 @@
 package com.mygame;
 
-import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
-import com.jme3.math.Ray;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 
-public class PhysicsEngine 
-{
+public class PhysicsEngine {
     private Player player;
     private Node rootNode;
-    private MovementManager movementManager; 
+    private MovementManager movementManager;
 
-    public PhysicsEngine(Player player, Node rootNode, MovementManager movementManager) 
-    {
+    public PhysicsEngine(Player player, Node rootNode, MovementManager movementManager) {
         this.player = player;
         this.rootNode = rootNode;
-        this.movementManager = movementManager; 
+        this.movementManager = movementManager;
     }
-   public void updatePhysics(float tpf) {
-    if (player.isGhostMode()) return;
 
-    // 1. Gravity and Y movement
-    float vY = player.getyVelocity();
-    vY += player.getGravity() * tpf;
-    player.setyVelocity(vY);
-    player.position.y += vY * tpf;
+    public void updatePhysics(float tpf) {
+        if (player.isGhostMode()) return;
 
-    // 2. Define the Player's Rectangle (AABB)
-    float playerHalfWidth = 0.3f;
-    float playerHalfHeight = 0.9f;
-    Vector3f playerCenter = player.position.add(0, playerHalfHeight, 0);
-    
-    com.jme3.bounding.BoundingBox playerBox = new com.jme3.bounding.BoundingBox(
-        playerCenter, playerHalfWidth, playerHalfHeight, playerHalfWidth
-    );
+        // 1. Calculate Vertical Movement
+        float vY = player.getyVelocity();
+        vY += player.getGravity() * tpf;
+        player.setyVelocity(vY);
+        float deltaY = vY * tpf;
 
-    // 3. Check for collisions
-    CollisionResults results = new CollisionResults();
-    rootNode.collideWith(playerBox, results);
+        // 2. Calculate Horizontal Movement
+        Vector3f moveDir = movementManager.getCurrentMoveDirection();
+        float speed = player.getMoveSpeed() * tpf;
+        float deltaX = moveDir.x * speed;
+        float deltaZ = moveDir.z * speed;
 
-    // Use a for-each loop to avoid the .getCollision(i) error
-    for (com.jme3.collision.CollisionResult res : results) {
-        Geometry geom = res.getGeometry();
+        // 3. Step-by-Step Prevention (Check faces before moving)
         
-        if (geom.getName().equals("WorldBlock") || geom.getName().equals("Floor")) {
-            // Get the block's bounding box to compare faces
-            com.jme3.bounding.BoundingBox blockBox = (com.jme3.bounding.BoundingBox) geom.getWorldBound();
-            
-            if (playerBox.intersects(blockBox)) {
-                // Check if we hit the TOP face (standing on ground)
-                // If player's center is higher than the block's center, it's a floor hit
-                if (playerCenter.y > blockBox.getCenter().y && vY <= 0) {
-                    player.position.y = blockBox.getCenter().y + blockBox.getYExtent();
-                    player.setyVelocity(0);
-                } 
-                // Otherwise, it's a SIDE face (wall hit)
-                else {
-                   Vector3f moveDir = movementManager.getCurrentMoveDirection();
-                   // Push the player back slightly opposite to their movement direction
-                   player.position.addLocal(moveDir.mult(-0.02f));
+        // Handle Y Axis
+        player.position.y += deltaY;
+        checkFaceCollision(true);
+
+        // Handle X Axis
+        player.position.x += deltaX;
+        checkFaceCollision(false);
+
+        // Handle Z Axis
+        player.position.z += deltaZ;
+        checkFaceCollision(false);
+
+        // Void Respawn
+        if (player.position.y < -50) {
+            player.position.set(0, 10, 0);
+            player.setyVelocity(0);
+        }
+    }
+
+    private void checkFaceCollision(boolean isVertical) {
+        float playerHalfWidth = 0.3f;
+        float playerHalfHeight = 0.9f;
+        Vector3f playerCenter = player.position.add(0, playerHalfHeight, 0);
+
+        com.jme3.bounding.BoundingBox playerBox = new com.jme3.bounding.BoundingBox(
+            playerCenter, playerHalfWidth, playerHalfHeight, playerHalfWidth
+        );
+
+        CollisionResults results = new CollisionResults();
+        rootNode.collideWith(playerBox, results);
+
+        for (com.jme3.collision.CollisionResult res : results) {
+            Geometry geom = res.getGeometry();
+            if (geom.getName().equals("WorldBlock") || geom.getName().equals("Floor")) {
+                com.jme3.bounding.BoundingBox blockBox = (com.jme3.bounding.BoundingBox) geom.getWorldBound();
+
+                if (playerBox.intersects(blockBox)) {
+                    // STOP at the face
+                    if (isVertical) {
+                        if (player.getyVelocity() < 0) {
+                            // Hit Top Face
+                            player.position.y = blockBox.getCenter().y + blockBox.getYExtent();
+                        } else {
+                            // Hit Bottom Face
+                            player.position.y = blockBox.getCenter().y - blockBox.getYExtent() - (playerHalfHeight * 2);
+                        }
+                        player.setyVelocity(0);
+                    } else {
+                        // Resolve horizontal by pushing back to the edge of the face
+                        Vector3f bCenter = blockBox.getCenter();
+                        float dx = playerCenter.x - bCenter.x;
+                        float dz = playerCenter.z - bCenter.z;
+
+                        float overlapX = (playerHalfWidth + blockBox.getXExtent()) - Math.abs(dx);
+                        float overlapZ = (playerHalfWidth + blockBox.getZExtent()) - Math.abs(dz);
+
+                        // The face comparison: resolve on the axis currently being updated
+                        if (overlapX < overlapZ) {
+                            player.position.x += (dx > 0) ? overlapX : -overlapX;
+                        } else {
+                            player.position.z += (dz > 0) ? overlapZ : -overlapZ;
+                        }
+                    }
+                    // Sync the center for the next potential block in the loop
+                    playerCenter = player.position.add(0, playerHalfHeight, 0);
+                    playerBox.setCenter(playerCenter);
                 }
             }
         }
     }
-
-    // Void Respawn logic
-    if (player.position.y < -50) {
-        player.position.set(0, 10, 0);
-        player.setyVelocity(0);
-    }
-}
 }
