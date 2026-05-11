@@ -42,27 +42,32 @@ public class RaycastManager
         selectionOutline.setMaterial(mat);
     }
 
-    public void update(float tpf) 
-    {
-        CollisionResults results = getRaycastResults();
-        
-        if (results.size() > 0) 
-        {
-            Geometry target = results.getClosestCollision().getGeometry();
-            // Move the outline to the target block
-            selectionOutline.setLocalTranslation(target.getLocalTranslation());
-            if (selectionOutline.getParent() == null) 
-            {
-                rootNode.attachChild(selectionOutline);
+    public void update(float tpf) {
+    CollisionResults results = getRaycastResults();
+    
+    boolean hitBlock = false;
+
+    if (results.size() > 0) {
+        for (int i = 0; i < results.size(); i++) {
+            Geometry target = results.getCollision(i).getGeometry();
+            
+            // Only show the outline if we are looking at a block or the floor
+            if (target.getName().equals("WorldBlock") || target.getName().equals("Floor")) {
+                selectionOutline.setLocalTranslation(target.getLocalTranslation());
+                if (selectionOutline.getParent() == null) {
+                    rootNode.attachChild(selectionOutline);
+                }
+                hitBlock = true;
+                break; // Stop looking once we find the closest valid block
             }
-        } 
-        else 
-        {
-            // Remove outline if we aren't looking at anything
-            selectionOutline.removeFromParent();
         }
     }
 
+    // If we didn't hit any valid blocks, remove the outline
+    if (!hitBlock) {
+        selectionOutline.removeFromParent();
+    }
+}
     public CollisionResults getRaycastResults() 
     {
         // Using cam.getLocation and cam.getDirection is what fixes the accuracy!
@@ -116,24 +121,26 @@ public class RaycastManager
     }
 }
        public void deleteBlock() 
-       {
-    // 1. Create a ray from camera location pointing forward
-    Ray ray = new Ray(cam.getLocation(), cam.getDirection());
-    CollisionResults results = new CollisionResults();
-    
-    // 2. Check collisions with everything in the world
-    rootNode.collideWith(ray, results);
+{
+    // 1. Get everything the crosshair is pointing at
+    CollisionResults results = getRaycastResults();
 
-    if (results.size() > 0)
+    // 2. Check if the ray hit anything at all
+    if (results.size() > 0) 
     {
-        Geometry target = results.getClosestCollision().getGeometry();
-        String hitName = target.getName();
-
-        // 3. Only delete if the name matches exactly
-        if (hitName.equals("WorldBlock")) 
+        // 3. Look through the list of hits. 
+        // We use a loop because the "SelectionOutline" is usually the first hit,
+        // and we need to look PAST it to find the actual block.
+        for (int i = 0; i < results.size(); i++) 
         {
-            target.removeFromParent();
-            //System.out.println("Block Deleted!");
+            Geometry target = results.getCollision(i).getGeometry();
+            
+            // 4. Only delete if the geometry is an actual world block
+            if (target.getName().equals("WorldBlock")) 
+            {
+                target.removeFromParent();
+                return; // Stop the method here so we only delete one block per click
+            }
         }
     }
 }

@@ -90,7 +90,7 @@ public class Main extends SimpleApplication {
 
         flyCam.setEnabled(false);
         mouseInput.setCursorVisible(false); 
-        inputManager.addMapping("Delete", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
+       // inputManager.addMapping("Delete", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
         // --- STEP 3: INPUT MAPPINGS ---
         inputManager.addMapping("Forward", new KeyTrigger(KeyInput.KEY_W));
         inputManager.addMapping("Back",    new KeyTrigger(KeyInput.KEY_S));
@@ -110,7 +110,7 @@ public class Main extends SimpleApplication {
         inputManager.addMapping("SpeedUp",    new MouseAxisTrigger(MouseInput.AXIS_WHEEL, false));
         inputManager.addMapping("SpeedDown",  new MouseAxisTrigger(MouseInput.AXIS_WHEEL, true));
 
-        inputManager.addListener(actionListener, "Forward", "Back", "Left", "Right", "Jump", "ToggleGhost", "Shoot", "Delete");
+        inputManager.addListener(actionListener, "Shoot", "Delete", "Forward", "Back", "Left", "Right", "Jump", "ToggleGhost");
         inputManager.addListener(analogListener, "MouseLeft", "MouseRight", "MouseUp", "MouseDown", "SpeedUp", "SpeedDown");
 
         initUI();
