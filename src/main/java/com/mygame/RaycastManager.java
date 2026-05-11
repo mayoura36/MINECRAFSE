@@ -5,6 +5,7 @@
 package com.mygame;
 
 import com.jme3.asset.AssetManager;
+import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
@@ -15,13 +16,15 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Box;
 
-public class RaycastManager {
+public class RaycastManager 
+{
     private Camera cam;
     private Node rootNode;
     private AssetManager assetManager;
     private Geometry selectionOutline;
 
-    public RaycastManager(Camera cam, Node rootNode, AssetManager assetManager) {
+    public RaycastManager(Camera cam, Node rootNode, AssetManager assetManager) 
+    {
         this.cam = cam;
         this.rootNode = rootNode;
         this.assetManager = assetManager;
@@ -29,7 +32,8 @@ public class RaycastManager {
     }
 
     // Creates a wireframe box that will follow our crosshair target
-    private void initOutline() {
+    private void initOutline() 
+    {
         Box box = new Box(0.51f, 0.51f, 0.51f); // Slightly larger than a block
         selectionOutline = new Geometry("SelectionOutline", box);
         Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
@@ -38,67 +42,98 @@ public class RaycastManager {
         selectionOutline.setMaterial(mat);
     }
 
-    public void update(float tpf) {
+    public void update(float tpf) 
+    {
         CollisionResults results = getRaycastResults();
         
-        if (results.size() > 0) {
+        if (results.size() > 0) 
+        {
             Geometry target = results.getClosestCollision().getGeometry();
             // Move the outline to the target block
             selectionOutline.setLocalTranslation(target.getLocalTranslation());
-            if (selectionOutline.getParent() == null) {
+            if (selectionOutline.getParent() == null) 
+            {
                 rootNode.attachChild(selectionOutline);
             }
-        } else {
+        } 
+        else 
+        {
             // Remove outline if we aren't looking at anything
             selectionOutline.removeFromParent();
         }
     }
 
-    public CollisionResults getRaycastResults() {
+    public CollisionResults getRaycastResults() 
+    {
         // Using cam.getLocation and cam.getDirection is what fixes the accuracy!
         Ray ray = new Ray(cam.getLocation(), cam.getDirection());
         CollisionResults results = new CollisionResults();
         rootNode.collideWith(ray, results);
         return results;
     }
-
-    public void placeBlock() {
-        CollisionResults results = getRaycastResults();
-        if (results.size() > 0) {
-            Vector3f hitPoint = results.getClosestCollision().getContactPoint();
-            // Use Math.round to snap to the grid
-            float x = Math.round(hitPoint.x);
-            float y = Math.round(hitPoint.y + 0.5f);
-            float z = Math.round(hitPoint.z);
-
-            Box box = new Box(0.5f, 0.5f, 0.5f);
-            Geometry cube = new Geometry("WorldBlock", box);
-            Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-            mat.setColor("Color", ColorRGBA.Blue);
-            cube.setMaterial(mat);
-            cube.setLocalTranslation(new Vector3f(x, y, z));
-            rootNode.attachChild(cube);
-        }
-    }
-
-    public void deleteBlock() {
-    // 1. Create the Ray from the center of the camera
+    public void placeBlock() 
+    {
+    // 1. Create a Ray from the camera pointing forward
     Ray ray = new Ray(cam.getLocation(), cam.getDirection());
     CollisionResults results = new CollisionResults();
     
-    // 2. Scan the rootNode for hits
+    // 2. See what we are looking at
     rootNode.collideWith(ray, results);
 
-    if (results.size() > 0) {
-        // Get the closest thing the crosshair is touching
-        Geometry target = results.getClosestCollision().getGeometry();
+    if (results.size() > 0) 
+    {
+        CollisionResult closest = results.getClosestCollision();
         
-        // 3. Safety Check: Only delete if it's a WorldBlock
-        // We check the name so we don't delete the Floor or the Selection Outline!
-        if (target.getName().equals("WorldBlock")) {
-            target.removeFromParent(); // This deletes the block from the game
-        } else if (target.getName().equals("Floor")) {
-            System.out.println("You cannot delete the floor!");
+        // 3. Get the contact point and the normal (which way the face is pointing)
+        Vector3f contactPoint = closest.getContactPoint();
+        Vector3f faceNormal = closest.getContactNormal();
+        
+        // 4. Calculate the new block position
+        // We move the contact point slightly in the direction of the face normal
+        // to ensure the new block sits ON TOP of the face, not inside it.
+        Vector3f newBlockPos = contactPoint.add(faceNormal.mult(0.5f));
+        
+        // 5. Grid Snapping
+        // This makes sure blocks align perfectly like Minecraft
+        float x = Math.round(newBlockPos.x);
+        float y = Math.round(newBlockPos.y);
+        float z = Math.round(newBlockPos.z);
+
+        // 6. Create the Box Geometry
+        Box box = new Box(0.5f, 0.5f, 0.5f); // A 1x1x1 cube
+        Geometry geom = new Geometry("WorldBlock", box); // CRITICAL: Name must be "WorldBlock"
+        
+        // 7. Apply Material (Blue)
+        Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setColor("Color", com.jme3.math.ColorRGBA.Blue);
+        geom.setMaterial(mat);
+        
+        // 8. Place and Attach
+        geom.setLocalTranslation(x, y, z);
+        rootNode.attachChild(geom);
+        
+        //System.out.println("Placed block at: " + x + ", " + y + ", " + z);
+    }
+}
+       public void deleteBlock() 
+       {
+    // 1. Create a ray from camera location pointing forward
+    Ray ray = new Ray(cam.getLocation(), cam.getDirection());
+    CollisionResults results = new CollisionResults();
+    
+    // 2. Check collisions with everything in the world
+    rootNode.collideWith(ray, results);
+
+    if (results.size() > 0)
+    {
+        Geometry target = results.getClosestCollision().getGeometry();
+        String hitName = target.getName();
+
+        // 3. Only delete if the name matches exactly
+        if (hitName.equals("WorldBlock")) 
+        {
+            target.removeFromParent();
+            //System.out.println("Block Deleted!");
         }
     }
 }

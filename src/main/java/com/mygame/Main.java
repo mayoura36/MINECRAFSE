@@ -39,8 +39,8 @@ public class Main extends SimpleApplication {
                 raycastManager.placeBlock();
             } 
             else if (name.equals("Delete") && isPressed) {
-                raycastManager.deleteBlock();
-            }
+    raycastManager.deleteBlock();
+}
             else if (name.equals("ToggleGhost") && isPressed) {
                 player.toggleGhostMode();
             }
@@ -90,7 +90,7 @@ public class Main extends SimpleApplication {
 
         flyCam.setEnabled(false);
         mouseInput.setCursorVisible(false); 
-
+        inputManager.addMapping("Delete", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
         // --- STEP 3: INPUT MAPPINGS ---
         inputManager.addMapping("Forward", new KeyTrigger(KeyInput.KEY_W));
         inputManager.addMapping("Back",    new KeyTrigger(KeyInput.KEY_S));
